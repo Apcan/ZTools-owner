@@ -199,7 +199,7 @@ export class PluginsAPI {
     try {
       const result = await dialog.showOpenDialog(this.mainWindow!, {
         title: '选择插件文件',
-        filters: [{ name: '插件文件', extensions: ['zip'] }],
+        filters: [{ name: '插件文件', extensions: ['zip', 'tool-plugin'] }],
         properties: ['openFile']
       })
 
