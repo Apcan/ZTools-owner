@@ -37,12 +37,12 @@
                 {{ plugin.title || plugin.name }}
                 <span class="plugin-version">v{{ plugin.version }}</span>
                 <span v-if="plugin.isDevelopment" class="dev-badge">开发中</span>
+                <span v-if="isPluginRunning(plugin.path)" class="running-badge">
+                  <span class="status-dot"></span>
+                  运行中
+                </span>
               </div>
               <div class="plugin-desc">{{ plugin.description || '暂无描述' }}</div>
-              <div v-if="isPluginRunning(plugin.path)" class="plugin-status running">
-                <span class="status-dot"></span>
-                运行中
-              </div>
             </div>
 
             <div class="plugin-meta">
@@ -105,30 +105,6 @@
                   <path
                     d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
                   ></path>
-                </svg>
-              </button>
-              <button
-                v-if="plugin.isDevelopment"
-                class="icon-btn package-btn"
-                :disabled="isPackaging"
-                title="打包插件为 ZIP"
-                @click.stop="handlePackagePlugin(plugin)"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <polyline points="16 16 12 12 8 16"></polyline>
-                  <line x1="12" y1="12" x2="12" y2="21"></line>
-                  <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
-                  <polyline points="16 16 12 12 8 16"></polyline>
                 </svg>
               </button>
               <button
@@ -231,11 +207,13 @@ import PluginDetail from './PluginDetail.vue'
 
 const props = defineProps<{
   searchQuery?: string
+  addDevPluginFilePath?: string
   autoOpenPluginName?: string
 }>()
 
 const emit = defineEmits<{
   (e: 'auto-open-consumed'): void
+  (e: 'add-dev-consumed'): void
 }>()
 
 const { success, error, confirm } = useToast()
@@ -268,11 +246,18 @@ async function loadPlugins(): Promise<void> {
   try {
     const result = await window.ztools.internal.getPlugins()
     // 插件中心的插件都是已安装的，标记 installed 为 true
-    plugins.value = result.map((plugin: any) => ({
-      ...plugin,
-      installed: true,
-      localVersion: plugin.version
-    }))
+    plugins.value = result
+      .map((plugin: any) => ({
+        ...plugin,
+        installed: true,
+        localVersion: plugin.version
+      }))
+      .sort((a: any, b: any) => {
+        // 按安装时间降序排序（最新安装的在前面）
+        const timeA = a.installedAt ? new Date(a.installedAt).getTime() : 0
+        const timeB = b.installedAt ? new Date(b.installedAt).getTime() : 0
+        return timeB - timeA
+      })
     // 同时加载运行中的插件
     await loadRunningPlugins()
   } catch (error) {
@@ -338,6 +323,30 @@ async function importDevPlugin(): Promise<void> {
     error(`添加开发中插件失败: ${err.message || '未知错误'}`)
   } finally {
     isImportingDev.value = false
+  }
+}
+
+// 自动添加开发插件（从文件路径）
+async function tryAutoAddDevPlugin(): Promise<void> {
+  const filePath = props.addDevPluginFilePath
+  if (!filePath || isImportingDev.value) return
+
+  isImportingDev.value = true
+  try {
+    const result = await window.ztools.internal.importDevPlugin(filePath)
+    if (result.success) {
+      // 重新加载插件列表
+      await loadPlugins()
+      success('开发中插件添加成功!')
+    } else {
+      error(`添加开发中插件失败: ${result.error}`)
+    }
+  } catch (err: any) {
+    console.error('添加开发中插件失败:', err)
+    error(`添加开发中插件失败: ${err.message || '未知错误'}`)
+  } finally {
+    isImportingDev.value = false
+    emit('add-dev-consumed')
   }
 }
 
@@ -546,6 +555,16 @@ watch(
   }
 )
 
+// 监听添加开发插件文件路径
+watch(
+  () => props.addDevPluginFilePath,
+  (filePath) => {
+    if (filePath) {
+      tryAutoAddDevPlugin()
+    }
+  }
+)
+
 // 尝试自动打开指定插件的详情
 function tryAutoOpenPlugin(): void {
   const name = props.autoOpenPluginName
@@ -711,30 +730,22 @@ function closePluginDetail(): void {
   border: 1px solid var(--purple-border);
 }
 
-.plugin-desc {
-  font-size: 13px;
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.plugin-status {
-  display: flex;
+.running-badge {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-  font-size: 12px;
+  gap: 4px;
+  font-size: 11px;
   font-weight: 500;
-}
-
-.plugin-status.running {
   color: var(--success-color);
+  background: var(--success-light-bg);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--success-color);
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--success-color);
   animation: pulse-dot 2s infinite;
@@ -748,6 +759,14 @@ function closePluginDetail(): void {
   50% {
     opacity: 0.5;
   }
+}
+
+.plugin-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .plugin-meta {
@@ -779,14 +798,6 @@ function closePluginDetail(): void {
 
 .folder-btn:hover {
   background: var(--primary-light-bg);
-}
-
-.package-btn {
-  color: var(--purple-color);
-}
-
-.package-btn:hover:not(:disabled) {
-  background: var(--purple-light-bg);
 }
 
 .reload-btn {
