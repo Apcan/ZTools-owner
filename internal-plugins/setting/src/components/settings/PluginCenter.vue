@@ -540,6 +540,20 @@ onMounted(async () => {
   // 如果有需要自动打开的插件，加载完成后打开详情
   tryAutoOpenPlugin()
   window.addEventListener('keydown', handleKeydown, true)
+
+  // 监听插件进入事件，确保每次进入时刷新状态
+  window.ztools.onPluginEnter(async (action) => {
+    console.log('PluginCenter: 插件进入，刷新状态')
+    // 重新加载插件列表和运行状态
+    await loadPlugins()
+    // 如果详情页面打开，同步更新 selectedPlugin
+    if (isDetailVisible.value && selectedPlugin.value) {
+      const updated = plugins.value.find((p) => p.path === selectedPlugin.value?.path)
+      if (updated) {
+        selectedPlugin.value = updated
+      }
+    }
+  })
 })
 
 onUnmounted(() => {
