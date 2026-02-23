@@ -56,6 +56,8 @@ const api = {
     ipcRenderer.invoke('get-plugin-readme', pluginPath),
   getPluginDbData: (pluginName: string): Promise<any> =>
     ipcRenderer.invoke('get-plugin-db-data', pluginName),
+  installPluginFromNpm: (packageName: string): Promise<any> =>
+    ipcRenderer.invoke('install-plugin-from-npm', packageName),
   deletePlugin: (pluginPath: string) => ipcRenderer.invoke('delete-plugin', pluginPath),
   reloadPlugin: (pluginPath: string) => ipcRenderer.invoke('reload-plugin', pluginPath),
   getRunningPlugins: () => ipcRenderer.invoke('get-running-plugins'),

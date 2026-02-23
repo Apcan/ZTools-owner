@@ -75,6 +75,11 @@ declare global {
         error?: string
         plugin?: any
       }>
+      installPluginFromNpm: (packageName: string) => Promise<{
+        success: boolean
+        error?: string
+        plugin?: any
+      }>
       getPluginReadme: (pluginPath: string) => Promise<{
         success: boolean
         content?: string

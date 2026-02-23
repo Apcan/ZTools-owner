@@ -181,6 +181,13 @@ export class InternalPluginAPI {
       return await (pluginsAPI as any).installPluginFromMarket(plugin)
     })
 
+    ipcMain.handle('internal:install-plugin-from-npm', async (event, packageName: string) => {
+      if (!requireInternalPlugin(this.pluginManager, event)) {
+        throw new PermissionDeniedError('internal:install-plugin-from-npm')
+      }
+      return await (pluginsAPI as any).installPluginFromNpm(packageName)
+    })
+
     ipcMain.handle(
       'internal:get-plugin-readme',
       async (event, pluginPathOrName: string, pluginName?: string) => {

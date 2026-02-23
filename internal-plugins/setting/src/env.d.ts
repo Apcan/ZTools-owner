@@ -93,6 +93,11 @@ declare global {
           error?: string
           plugin?: any
         }>
+        installPluginFromNpm: (packageName: string) => Promise<{
+          success: boolean
+          error?: string
+          plugin?: any
+        }>
 
         // 插件数据管理
         getPluginReadme: (pluginPath: string) => Promise<{
