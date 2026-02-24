@@ -276,7 +276,7 @@
     <!-- npm 安装面板 -->
     <Transition name="slide">
       <NpmInstallPanel
-        v-if="showNpmPanel"
+        v-if="isDetailVisible && showNpmPanel"
         ref="npmInstallPanelRef"
         :visible="showNpmPanel"
         @back="closeNpmPanel"
@@ -743,6 +743,7 @@ function closePluginDetail(): void {
 // 显示 npm 安装面板
 function showNpmInstallPanel(): void {
   showNpmPanel.value = true
+  isDetailVisible.value = true
   showMoreMenu.value = false
 }
 
@@ -750,6 +751,7 @@ function showNpmInstallPanel(): void {
 function closeNpmPanel(): void {
   if (isImportingNpm.value) return
   showNpmPanel.value = false
+  isDetailVisible.value = false
   npmInstallPanelRef.value?.resetForm()
 }
 

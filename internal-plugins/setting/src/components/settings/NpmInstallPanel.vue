@@ -1,7 +1,6 @@
 <template>
-  <div class="npm-install-overlay">
-    <DetailPanel title="从 npm 安装插件" @back="emit('back')">
-      <div class="npm-install-content">
+  <DetailPanel title="从 npm 安装插件" @back="emit('back')">
+    <div class="npm-install-content">
       <div class="install-form">
         <div class="input-group">
           <label>npm 包名</label>
@@ -37,11 +36,10 @@
       </div>
     </div>
   </DetailPanel>
-  </div>
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 import DetailPanel from '../common/DetailPanel.vue'
 
 const props = defineProps<{
@@ -76,22 +74,12 @@ function resetForm(): void {
   isInstalling.value = false
 }
 
-// 面板显示时自动聚焦输入框
-watch(
-  () => props.visible,
-  async (visible) => {
-    if (visible) {
-      resetForm()
-      await nextTick()
-      packageInput.value?.focus()
-    }
-  }
-)
-
 onMounted(() => {
   if (props.visible) {
     nextTick(() => {
-      packageInput.value?.focus()
+      setTimeout(() => {
+        packageInput.value?.focus()
+      }, 200)
     })
   }
 })
@@ -103,14 +91,6 @@ defineExpose({
 </script>
 
 <style scoped>
-.npm-install-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 10001;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
-}
-
 .npm-install-content {
   padding: 24px;
 }
