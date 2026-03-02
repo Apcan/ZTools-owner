@@ -4,11 +4,12 @@
       <div :class="['search-box-wrapper', { 'with-divider': currentView === ViewMode.Plugin }]">
         <SearchBox
           ref="searchBoxRef"
-          v-model="searchQuery"
           v-model:pasted-image="pastedImageData"
           v-model:pasted-files="pastedFilesData"
           v-model:pasted-text="pastedTextData"
+          :model-value="searchQuery"
           :current-view="currentView"
+          @update:model-value="handleSearchQueryChange"
           @composing="handleComposing"
           @arrow-keydown="handleArrowKeydown"
           @close-plugin="handleClosePlugin"
@@ -74,14 +75,14 @@ const pastedFilesData = ref<FileItem[] | null>(null)
 // 粘贴的文本数据
 const pastedTextData = ref<string | null>(null)
 
-// 监听搜索框输入变化
-watch(searchQuery, (newValue) => {
-  // 如果在插件模式下,通知主进程,由主进程转发给插件（同时更新缓存）
+// 处理搜索框输入变化（由 SearchBox @update:model-value 触发，仅用户输入会触发）
+function handleSearchQueryChange(value: string): void {
+  searchQuery.value = value
+  // 如果在插件模式下，通知主进程，由主进程转发给插件（同时更新缓存）
   if (currentView.value === ViewMode.Plugin && windowStore.currentPlugin) {
-    window.ztools.notifySubInputChange(newValue)
+    window.ztools.notifySubInputChange(value)
   }
-  // 不再在输入时清除粘贴内容，允许文字和粘贴内容共存
-})
+}
 
 // 监听粘贴图片数据变化
 watch(pastedImageData, (newValue) => {
@@ -373,6 +374,8 @@ async function handleKeydown(event: KeyboardEvent): Promise<void> {
       if (searchQuery.value.trim()) {
         // 第一步：清除输入框
         searchQuery.value = ''
+        // 通知插件输入已清空
+        window.ztools.notifySubInputChange('')
       } else if (pastedImageData.value || pastedFilesData.value || pastedTextData.value) {
         // 第二步：清除粘贴内容
         pastedImageData.value = null
