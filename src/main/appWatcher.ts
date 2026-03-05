@@ -85,10 +85,12 @@ class AppWatcher {
 
     console.log('[AppWatcher] 开始监听应用目录变化:', watchPaths)
 
+    const isWindows = process.platform === 'win32'
+
     // 创建监听器
     this.watcher = chokidar.watch(watchPaths, {
       // Windows 需要递归监听子目录，macOS 只需要一级
-      depth: process.platform === 'win32' ? 5 : 1,
+      depth: isWindows ? 5 : 1,
       // 根据平台设置忽略规则
       ignored: (filePath: string) => {
         return this.shouldIgnore(filePath, watchPaths)
@@ -97,8 +99,10 @@ class AppWatcher {
       persistent: true,
       // 忽略初始添加事件(避免启动时触发大量事件)
       ignoreInitial: true,
-      // 使用轮询作为后备方案
-      usePolling: false,
+      // Windows 使用轮询避免 fs.watch 占用文件夹句柄导致无法重命名/删除
+      usePolling: isWindows,
+      interval: isWindows ? 5000 : undefined,
+      binaryInterval: isWindows ? 5000 : undefined,
       // 监听文件夹事件
       followSymlinks: false,
       // 避免在 macOS 上出现问题
