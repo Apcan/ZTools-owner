@@ -38,8 +38,8 @@ export class PluginWindowAPI {
         }
 
         // URL 安全校验（仅允许 .html 或 http）
-        if (!url.endsWith('.html') && !url.startsWith('http')) {
-          event.returnValue = new Error('url must end with .html')
+        if (!url.startsWith('http')) {
+          event.returnValue = new Error('The URL must be a local address starting with file://')
           return
         }
 
