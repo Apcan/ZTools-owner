@@ -45,6 +45,10 @@ interface NativeAddon {
   resolveMuiStrings: (refs: string[]) => { [ref: string]: string }
   startColorPicker: (callback: (result: { success: boolean; hex: string | null }) => void) => void
   stopColorPicker: () => void
+  /** 通过 Unicode 输入法模拟键入单个字符/字素簇 */
+  unicodeType: (segment: string) => boolean
+  /** Windows: 通过 COM IShellWindows 查询指定窗口句柄对应的 Explorer 文件夹路径 */
+  getExplorerFolderPath: (hwnd: number) => string | null
 }
 
 interface WindowInfo {
@@ -57,6 +61,8 @@ interface WindowInfo {
   width?: number // 窗口宽度
   height?: number // 窗口高度
   appPath?: string // 应用路径
+  className?: string // Windows 窗口类名（用于区分 CabinetWClass/Progman/WorkerW 等）
+  hwnd?: number // Windows 窗口句柄（用于 COM 查询 Explorer 路径）
 }
 
 interface ActiveWindowResult {
@@ -164,11 +170,8 @@ export class ClipboardMonitor {
       throw new Error('files array cannot be empty')
     }
 
-    if (platform === 'win32') {
+    if (platform === 'win32' || platform === 'darwin') {
       return (addon as NativeAddon).setClipboardFiles(files)
-    } else if (platform === 'darwin') {
-      // macOS 暂不支持
-      throw new Error('setClipboardFiles is not yet supported on macOS')
     }
     return false
   }
@@ -305,6 +308,27 @@ export class WindowManager {
       throw new TypeError('key must be a non-empty string')
     }
     return (addon as NativeAddon).simulateKeyboardTap(key, ...modifiers)
+  }
+
+  /**
+   * 模拟 Unicode 字符输入（逐字符输入，类似输入法）
+   * @param {string} segment - 要输入的字符/字素簇
+   * @returns {boolean} 是否成功
+   */
+  static unicodeType(segment: string): boolean {
+    return (addon as NativeAddon).unicodeType(segment)
+  }
+
+  /**
+   * Windows: 通过 COM IShellWindows 查询指定窗口句柄对应的 Explorer 文件夹路径
+   * @param hwnd - 窗口句柄（从 WindowInfo.hwnd 获取）
+   * @returns 文件夹路径（file:/// URL 格式），失败返回 null
+   */
+  static getExplorerFolderPath(hwnd: number): string | null {
+    if (platform !== 'win32') {
+      throw new Error('getExplorerFolderPath is only available on Windows')
+    }
+    return (addon as NativeAddon).getExplorerFolderPath(hwnd)
   }
 
   /**

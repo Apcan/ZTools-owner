@@ -20,7 +20,8 @@ import webSearchAPI from './renderer/webSearch'
 import windowAPI from './renderer/window'
 
 // 插件专用API
-import windowManager from '../managers/windowManager'
+import clipboardManager from '../managers/clipboardManager' // paste API 需要暂停剪贴板监听
+import windowManager from '../managers/windowManager' // paste/type API 需要隐藏主窗口
 import pluginAiAPI from './plugin/ai'
 import pluginClipboardAPI from './plugin/clipboard'
 import pluginDeviceAPI from './plugin/device'
@@ -86,8 +87,10 @@ class APIManager {
     pluginDialogAPI.init(mainWindow)
     pluginWindowAPI.init(mainWindow, pluginManager)
     pluginScreenAPI.init(mainWindow)
-    pluginInputAPI.init(pluginManager)
-    pluginShellAPI.init()
+    // 初始化插件输入 API（需要 windowManager 和 clipboardManager 支持 paste/type 功能）
+    pluginInputAPI.init(pluginManager, windowManager, clipboardManager)
+    // 初始化插件 Shell API（需要 clipboardManager 获取当前窗口信息）
+    pluginShellAPI.init(clipboardManager)
     pluginRedirectAPI.init(mainWindow, pluginManager)
     pluginFeatureAPI.init(pluginManager)
     pluginHttpAPI.init(pluginManager)

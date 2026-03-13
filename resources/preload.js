@@ -408,6 +408,22 @@ window.ztools = {
   hideMainWindow: async (isRestorePreWindow = true) => {
     return await electron.ipcRenderer.invoke('hide-main-window', isRestorePreWindow)
   },
+  // 隐藏窗口并粘贴文本到外部应用
+  hideMainWindowPasteText: (text) => {
+    return electron.ipcRenderer.sendSync('hide-main-window-paste-text', text)
+  },
+  // 隐藏窗口并粘贴图片到外部应用
+  hideMainWindowPasteImage: (image) => {
+    return electron.ipcRenderer.sendSync('hide-main-window-paste-image', image)
+  },
+  // 隐藏窗口并粘贴文件到外部应用
+  hideMainWindowPasteFile: (filePath) => {
+    return electron.ipcRenderer.sendSync('hide-main-window-paste-file', filePath)
+  },
+  // 隐藏窗口并模拟键入字符串到外部应用
+  hideMainWindowTypeString: (text) => {
+    return electron.ipcRenderer.sendSync('hide-main-window-type-string', text)
+  },
   // 创建独立窗口（白名单动态挂载模式，与 utools 一致）
   createBrowserWindow: (url, options, callback) => {
     // 注册 callback（子窗口 dom-ready 时由主进程在父窗口触发）
@@ -502,6 +518,8 @@ window.ztools = {
   shellBeep: () => electron.ipcRenderer.sendSync('shell-beep'),
   // 将文件移动到回收站
   shellTrashItem: (fullPath) => electron.ipcRenderer.invoke('shell-trash-item', fullPath),
+  // 读取当前文件管理器窗口的文件夹路径（macOS: Finder / Windows: Explorer）
+  readCurrentFolderPath: () => electron.ipcRenderer.invoke('plugin:read-current-folder-path'),
   // 获取文件系统图标（返回 base64 Data URL）
   getFileIcon: (filePath) => electron.ipcRenderer.sendSync('get-file-icon', filePath),
   // 插件跳转
