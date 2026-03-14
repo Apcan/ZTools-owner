@@ -77,7 +77,7 @@ export const useWindowStore = defineStore('window', () => {
   const subInputVisible = ref(false) // 子输入框是否可见（默认隐藏，调用 setSubInput 后显示）
 
   // 自动粘贴配置
-  const autoPaste = ref<AutoPasteOption>('off')
+  const autoPaste = ref<AutoPasteOption>('3s')
 
   // 自动清空配置
   const autoClear = ref<AutoClearOption>('immediately')

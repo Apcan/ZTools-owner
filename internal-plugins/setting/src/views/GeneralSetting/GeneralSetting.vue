@@ -119,7 +119,7 @@ const theme = ref<ThemeType>('system')
 const primaryColor = ref<PrimaryColor>('blue')
 const placeholder = ref(DEFAULT_PLACEHOLDER)
 const avatar = ref(DEFAULT_AVATAR)
-const autoPaste = ref<AutoPasteOption>('off')
+const autoPaste = ref<AutoPasteOption>('3s')
 const autoClear = ref<AutoClearOption>('immediately')
 const autoBackToSearch = ref<AutoBackToSearchOption>('never')
 const showRecentInSearch = ref(true)
@@ -972,7 +972,7 @@ async function loadSettings(): Promise<void> {
       showTrayIcon.value = data.showTrayIcon ?? true
       placeholder.value = data.placeholder ?? DEFAULT_PLACEHOLDER
       avatar.value = data.avatar ?? DEFAULT_AVATAR
-      autoPaste.value = data.autoPaste ?? 'off'
+      autoPaste.value = data.autoPaste ?? '3s'
       autoClear.value = data.autoClear ?? 'immediately'
       autoBackToSearch.value = data.autoBackToSearch ?? 'never'
       showRecentInSearch.value = data.showRecentInSearch ?? true
