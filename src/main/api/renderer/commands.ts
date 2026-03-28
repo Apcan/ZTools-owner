@@ -431,12 +431,14 @@ export class AppsAPI {
               this.mainWindow?.hide()
             }
           } else {
+            // 先通知渲染进程切换到插件视图模式
+            // 必须在 show() 之前发送，否则 show() 触发的 focus-search 事件
+            // 会在渲染进程中因 currentView 仍为 Search 而调用 hidePlugin()
+            this.notifyRenderer('show-plugin-placeholder')
             // 检查主窗口是否可见
             if (!this.mainWindow?.isVisible()) {
               this.mainWindow?.show()
             }
-            // 通知渲染进程准备显示插件占位区域
-            this.notifyRenderer('show-plugin-placeholder')
 
             // 在主窗口中创建插件
             await this.pluginManager.createPluginView(appPath, featureCode || '', name)

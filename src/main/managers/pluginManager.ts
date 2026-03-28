@@ -456,16 +456,31 @@ export class PluginManager {
       featureCode
     })
 
-    this.pluginView = cached.view
-    this.mainWindow.contentView.addChildView(this.pluginView)
+    // 使用局部变量持有视图引用。
+    // 关键：延迟设置 this.pluginView，直到所有 async 操作完成。
+    // 这样在 await 期间若 hidePluginView() 被竞态调用（focus-search → hidePlugin IPC），
+    // 因 this.pluginView 仍为 null，守卫条件不通过，装配会话不会被误中断。
+    const view = cached.view
+    this.mainWindow.contentView.addChildView(view)
 
     // 恢复显示时关闭节流
-    this.applyBackgroundThrottlingByPolicy(this.pluginView, pluginPath, false)
+    this.applyBackgroundThrottlingByPolicy(view, pluginPath, false)
 
-    const mode = await this.getPluginMode(this.pluginView.webContents, featureCode)
+    const mode = await this.getPluginMode(view.webContents, featureCode)
+
+    // await 之后检查装配会话是否仍然有效
+    if (assembly && !this.assemblyCoordinator.isActiveSession(assembly)) {
+      console.log('[Plugin] 装配会话在 getPluginMode 期间被中断，跳过后续恢复:', pluginPath)
+      this.mainWindow.contentView.removeChildView(view)
+      return
+    }
+
+    // === 所有 async 操作完成，提交状态 ===
+    this.pluginView = view
+    this.currentPluginPath = pluginPath
 
     console.log('[Plugin] 插件视图获取焦点')
-    this.pluginView.webContents.focus()
+    view.webContents.focus()
 
     // 恢复之前的高度或使用默认高度
     const isConfigHeadless = !pluginInfoFromDB?.main
@@ -480,8 +495,6 @@ export class PluginManager {
     } else {
       this.setExpendHeight(cached.height || this.pluginDefaultHeight, false)
     }
-
-    this.currentPluginPath = pluginPath
 
     // 读取插件配置并通知渲染进程
     try {
@@ -507,12 +520,12 @@ export class PluginManager {
       pluginPath,
       featureCode
     })
-    await this.processPluginMode(pluginPath, featureCode, this.pluginView, assembly, mode)
+    await this.processPluginMode(pluginPath, featureCode, view, assembly, mode)
 
     // 修复部分 Windows 系统重新挂载 WebContentsView 后白屏问题：
     // removeChildView/addChildView 后某些 GPU 驱动下 compositor 不重绘 surface，
     // 通过 bounds 微调 (+1px/-1px) 强制 compositor 重新合成
-    this.forceRepaintView(cached.view)
+    this.forceRepaintView(view)
   }
 
   /**

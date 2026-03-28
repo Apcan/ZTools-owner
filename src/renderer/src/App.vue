@@ -501,9 +501,6 @@ onMounted(async () => {
     // 重置所有列表的折叠状态
     searchResultsRef.value?.resetCollapseState()
 
-    // 隐藏插件视图
-    window.ztools.hidePlugin()
-
     // 聚焦输入框
     nextTick(() => {
       searchBoxRef.value?.focus()
