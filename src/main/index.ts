@@ -14,6 +14,7 @@ import { loadInternalPlugins } from './core/internalPluginLoader'
 import { startInternalPluginServer } from './core/internalPluginServer'
 import pluginManager from './managers/pluginManager'
 import windowManager from './managers/windowManager'
+import { normalizePluginVariantRef, resolvePluginByVariantRef } from '../shared/pluginVariantRef'
 
 // Windows 平台需要设置 AppUserModelId 才能让单例锁正常工作
 if (process.platform === 'win32') {
@@ -89,10 +90,16 @@ if (process.env.NODE_ENV !== 'production') {
 // app.commandLine.appendSwitch('disable-web-security')
 
 // 导出函数供 API 使用
+/**
+ * 更新主窗口使用的全局唤起快捷键。
+ */
 export function updateShortcut(shortcut: string): boolean {
   return windowManager.registerShortcut(shortcut)
 }
 
+/**
+ * 读取当前已经生效的全局唤起快捷键。
+ */
 export function getCurrentShortcut(): string {
   return windowManager.getCurrentShortcut()
 }
@@ -137,15 +144,23 @@ app.whenReady().then(async () => {
       const autoStartPlugins = api.dbGet('autoStartPlugin')
       const disabledPlugins = pluginsAPI.getDisabledPluginSet()
       if (autoStartPlugins && Array.isArray(autoStartPlugins) && autoStartPlugins.length > 0) {
+        console.log('[Main] 开始处理自动启动插件:', { count: autoStartPlugins.length })
         const plugins = api.dbGet('plugins')
         if (plugins && Array.isArray(plugins)) {
-          for (const pluginName of autoStartPlugins) {
-            const plugin = plugins.find((p: any) => p.name === pluginName)
+          for (const pluginRef of autoStartPlugins) {
+            const plugin = resolvePluginByVariantRef(plugins, pluginRef)
             if (plugin?.path && !disabledPlugins.has(plugin.path)) {
-              console.log('[Main] 自动启动插件:', pluginName)
-              pluginManager.preloadPlugin(plugin.path).catch((error) => {
-                console.error('[Main] 自动启动插件失败:', pluginName, error)
+              const normalizedRef = normalizePluginVariantRef(pluginRef)
+              console.log('[Main] 自动启动插件:', {
+                pluginName: plugin.name,
+                source:
+                  normalizedRef?.source || (plugin.isDevelopment ? 'development' : 'installed')
               })
+              pluginManager.preloadPlugin(plugin.path).catch((error) => {
+                console.error('[Main] 自动启动插件失败:', plugin.name, error)
+              })
+            } else {
+              console.warn('[Main] 自动启动插件已跳过，未找到对应变体:', pluginRef)
             }
           }
         }
