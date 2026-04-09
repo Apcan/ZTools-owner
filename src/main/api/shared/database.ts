@@ -1,6 +1,7 @@
 import { ipcMain, IpcMainEvent, IpcMainInvokeEvent } from 'electron'
 import type { PluginManager } from '../../managers/pluginManager'
 import lmdbInstance from '../../core/lmdb/lmdbInstance'
+import pluginWindowManager from '../../core/pluginWindowManager'
 import {
   getPluginDataPrefix,
   isDevelopmentPluginName,
@@ -17,19 +18,6 @@ export class DatabaseAPI {
   public init(pluginManager: PluginManager): void {
     this.pluginManager = pluginManager
     this.setupIPC()
-  }
-
-  /**
-   * 从 session partition 中还原插件 runtime namespace。
-   * 插件子窗口无法直接命中主视图缓存时，依赖该信息继续保持数据隔离。
-   */
-  private getRuntimeNamespaceFromSessionPartition(partition?: string): string | null {
-    if (typeof partition !== 'string' || !partition.startsWith('persist:')) {
-      return null
-    }
-
-    const runtimeNamespace = partition.slice('persist:'.length).trim()
-    return runtimeNamespace || null
   }
 
   /**
@@ -63,17 +51,10 @@ export class DatabaseAPI {
       return getPluginDataPrefix(pluginInfo.name)
     }
 
-    // 2. 检查是否来自插件创建的子窗口
-    const sessionPartition = (event.sender.session as Electron.Session & { partition?: string })
-      ?.partition
-    const runtimeNamespace = this.getRuntimeNamespaceFromSessionPartition(sessionPartition)
-    if (runtimeNamespace) {
-      console.log('[Database] 根据 session partition 解析插件数据命名空间:', {
-        webContentsId: event.sender.id,
-        partition: sessionPartition,
-        runtimeNamespace
-      })
-      return `PLUGIN/${runtimeNamespace}/`
+    // 2. 检查是否来自插件创建的子窗口（BrowserWindow）
+    const pluginName = pluginWindowManager.getPluginNameByWebContentsId(event.sender.id)
+    if (pluginName) {
+      return getPluginDataPrefix(pluginName)
     }
 
     return null

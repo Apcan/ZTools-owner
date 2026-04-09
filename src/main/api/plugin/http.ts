@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import type { PluginManager } from '../../managers/pluginManager'
+import pluginWindowManager from '../../core/pluginWindowManager'
 
 /**
  * HTTP API - 插件专用
@@ -111,33 +112,21 @@ export class PluginHttpAPI {
   private getPluginRuntimeNamespaceFromWebContents(
     webContents: Electron.WebContents
   ): string | null {
-    try {
-      if (this.pluginManager) {
-        const pluginInfo = this.pluginManager.getPluginInfoByWebContents(webContents)
-        if (pluginInfo) {
-          return pluginInfo.name
-        }
+    // 1. 检查是否来自插件主 BrowserView
+    if (this.pluginManager) {
+      const pluginInfo = this.pluginManager.getPluginInfoByWebContents(webContents)
+      if (pluginInfo) {
+        return pluginInfo.name
       }
-
-      // 如果 pluginManager 不可用，尝试从 session partition 获取
-      try {
-        const sess = webContents.session
-        // @ts-ignore - partition 属性可能不在类型定义中，但实际存在
-        const partition = sess.partition
-
-        // partition 格式: 'persist:<runtimeNamespace>'
-        if (partition && typeof partition === 'string' && partition.startsWith('persist:')) {
-          return partition.substring(8) // 移除 'persist:' 前缀
-        }
-      } catch {
-        // 忽略错误
-      }
-
-      return null
-    } catch (error) {
-      console.error('[PluginHttp] 获取插件运行时命名空间失败:', error)
-      return null
     }
+
+    // 2. 检查是否来自插件创建的子窗口（BrowserWindow）
+    const pluginName = pluginWindowManager.getPluginNameByWebContentsId(webContents.id)
+    if (pluginName) {
+      return pluginName
+    }
+
+    return null
   }
 
   /**
