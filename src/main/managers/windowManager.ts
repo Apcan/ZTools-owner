@@ -268,6 +268,19 @@ class WindowManager {
       console.log('[Window] 页面加载成功!')
     })
 
+    // 监听主渲染进程导航事件，检测刷新（跳转到自身）
+    // 若当前有插件视图显示，则将其从 contentView 移除（不销毁），避免叠层问题
+    this.mainWindow.webContents.on(
+      'did-start-navigation',
+      (_event, url, isInPlace, isMainFrame) => {
+        if (!isMainFrame || isInPlace) return
+        const currentUrl = this.mainWindow?.webContents.getURL()
+        if (currentUrl && url === currentUrl && pluginManager.getCurrentPluginPath() !== null) {
+          pluginManager.detachPluginViewOnRefresh()
+        }
+      }
+    )
+
     // 监听主窗口 webContents 的焦点事件
     this.mainWindow.webContents.on('focus', () => {
       // 只在非恢复焦点状态时才更新 lastFocusTarget，避免显示窗口流程中被意外覆盖

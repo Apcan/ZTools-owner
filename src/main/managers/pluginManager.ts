@@ -849,6 +849,21 @@ export class PluginManager {
     }
   }
 
+  /**
+   * 主窗口渲染进程刷新时，仅将当前插件视图从 contentView 移除（不发送生命周期事件、不销毁）。
+   * 避免渲染进程状态重置后与插件视图产生叠层问题。
+   */
+  public detachPluginViewOnRefresh(): void {
+    if (!this.pluginView || !this.mainWindow) return
+    const pluginView = this.pluginView
+    console.log('[Plugin] 检测到主渲染进程刷新，移除当前插件视图以防叠层:', this.currentPluginPath)
+    this.mainWindow.contentView.removeChildView(pluginView)
+    this.pluginView = null
+    this.currentPluginPath = null
+    this.assemblyCoordinator.abortCurrentSession('renderer-refresh-abort-assembly')
+    this.assemblyCoordinator.clearCurrentSession()
+  }
+
   // 获取当前加载的插件路径
   public getCurrentPluginPath(): string | null {
     return this.currentPluginPath
