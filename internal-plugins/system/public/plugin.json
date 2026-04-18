@@ -63,6 +63,19 @@
       ]
     },
     {
+      "code": "open-folder",
+      "explain": "前往文件夹",
+      "icon": "folder.png",
+      "cmds": [
+        {
+          "type": "regex",
+          "match": "/^(?:~?\\/[^/\\n\\r\\f\\v]+)+\\/?$/",
+          "label": "前往文件夹",
+          "minLength": 2
+        }
+      ]
+    },
+    {
       "code": "window-info",
       "explain": "窗口信息",
       "icon": "window-info.png",

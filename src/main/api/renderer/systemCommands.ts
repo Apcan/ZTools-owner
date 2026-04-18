@@ -100,6 +100,9 @@ export async function executeSystemCommand(
     case 'open-url':
       return handleOpenUrl(ctx, param)
 
+    case 'open-folder':
+      return handleOpenFolder(ctx, param)
+
     case 'window-info':
       return handleWindowInfo(ctx)
 
@@ -486,6 +489,47 @@ async function handleOpenTerminal(
     }
   }
   return { success: false, error: `不支持的平台: ${process.platform}` }
+}
+
+async function handleOpenFolder(ctx: SystemCommandContext, param: any): Promise<any> {
+  console.log('[SystemCmd] 前往文件夹:', param)
+  if (!param?.payload) {
+    return { success: false, error: '缺少路径' }
+  }
+
+  let targetPath: string = param.payload.trim()
+
+  // 展开 ~ 为用户主目录
+  if (targetPath.startsWith('~')) {
+    const os = await import('os')
+    targetPath = os.homedir() + targetPath.slice(1)
+  }
+
+  const fs = await import('fs')
+  let stat: import('fs').Stats | null = null
+  try {
+    stat = fs.statSync(targetPath)
+  } catch {
+    // 路径不存在，仍尝试 openPath（让系统报错）
+  }
+
+  if (stat && stat.isFile()) {
+    // 是文件：在 Finder/Explorer 中高亮显示文件
+    shell.showItemInFolder(targetPath)
+    ctx.mainWindow?.webContents.send('app-launched')
+    ctx.mainWindow?.hide()
+    return { success: true }
+  }
+
+  const errorMessage = await shell.openPath(targetPath)
+  if (errorMessage) {
+    console.error('[SystemCmd] 前往文件夹失败:', errorMessage)
+    return { success: false, error: errorMessage }
+  }
+
+  ctx.mainWindow?.webContents.send('app-launched')
+  ctx.mainWindow?.hide()
+  return { success: true }
 }
 
 function handleColorPicker(ctx: SystemCommandContext): Promise<any> {
