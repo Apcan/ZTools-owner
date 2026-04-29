@@ -18,6 +18,7 @@ import api from '../api'
 import databaseAPI from '../api/shared/database'
 import doubleTapManager from '../core/doubleTapManager.js'
 import clipboardManager from './clipboardManager'
+import { WindowManager as NativeWindowManager } from '../core/native'
 
 import { WINDOW_DEFAULT_HEIGHT, WINDOW_INITIAL_HEIGHT, WINDOW_WIDTH } from '../common/constants'
 import detachedWindowManager from '../core/detachedWindowManager'
@@ -83,6 +84,7 @@ class WindowManager {
   private appShortcuts: Map<string, string> = new Map() // 应用快捷键映射表 (快捷键 -> 目标指令)
   private wakeupBlacklist: Array<{ app: string; bundleId?: string; label?: string }> = [] // 唤醒黑名单
   private onThemeInfoChanged: (() => void) | null = null // 主题信息变更回调钩子
+  private lastToggleTime: number = 0 // 上次切换窗口的时间戳（防止双击修饰键重复触发）
   // 应用快捷键触发时携带的当前输入上下文
   private appShortcutLaunchContext: AppShortcutLaunchContext = {
     searchQuery: '',
@@ -310,9 +312,21 @@ class WindowManager {
           this.hideWindow(false)
         }, 150)
       } else {
-        // macOS / Windows：原有行为不变
-        this.lastBlurHideTime = Date.now()
-        this.hideWindow(false)
+        // macOS / Windows：延迟检查，避免窗口刚显示时焦点还没完全转移就被隐藏
+        if (this.blurHideTimer) {
+          clearTimeout(this.blurHideTimer)
+          this.blurHideTimer = null
+        }
+        this.blurHideTimer = setTimeout(() => {
+          this.blurHideTimer = null
+          // 主窗口重新获焦 → 不隐藏
+          if (this.mainWindow?.isFocused()) return
+          // 插件视图持有焦点（应用内部切换）→ 不隐藏
+          if (pluginManager.isPluginViewFocused()) return
+          // 确认是点击了其他窗口，隐藏
+          this.lastBlurHideTime = Date.now()
+          this.hideWindow(false)
+        }, 150)
       }
     })
 
@@ -332,6 +346,11 @@ class WindowManager {
         // 修复部分 Windows 系统窗口隐藏再显示后插件白屏：
         // 延迟到下一 tick 执行，避免与窗口 show 动画在同一 vsync 合并导致重绘失效
         setImmediate(() => pluginManager.forceRepaintCurrentView())
+      } else {
+        // lastFocusTarget 是 'plugin' 但当前没有插件在显示（插件已关闭）
+        // 这种情况下应该聚焦主窗口
+        this.mainWindow?.webContents.focus()
+        this.mainWindow?.webContents.send('focus-search', this.previousActiveWindow || null)
       }
 
       // 恢复完成，清除标志位
@@ -499,7 +518,22 @@ class WindowManager {
     if (this.isDoubleTapShortcut(keyToRegister)) {
       const modifier = keyToRegister.split('+')[0]
       doubleTapManager.register(modifier, () => {
-        this.toggleWindow()
+        // 防止重复触发：如果已经在处理中，忽略
+        const now = Date.now()
+        const timeSinceLastToggle = now - this.lastToggleTime
+        if (timeSinceLastToggle < 300) {
+          console.log('[Window] 双击修饰键防抖：忽略重复触发')
+          return
+        }
+        this.lastToggleTime = now
+
+        // Windows 上双击修饰键后，修饰键可能还处于"按下"状态
+        // 需要延迟一小段时间让系统释放修饰键，否则 focus() 可能无法正确工作
+        if (platform.isWindows) {
+          setTimeout(() => this.toggleWindow(), 50)
+        } else {
+          this.toggleWindow()
+        }
       })
       this.currentShortcut = keyToRegister
       this.isDoubleTapMode = true
@@ -609,11 +643,34 @@ class WindowManager {
       return
     }
 
-    // 3. 设置窗口层级为最前
-    this.mainWindow.setAlwaysOnTop(true)
+    // 3. Windows 特殊处理：强制激活窗口
+    // 先取消置顶，再重新设置，确保窗口能正确获得焦点
+    this.mainWindow.setAlwaysOnTop(false)
 
-    // 4. 聚焦窗口
-    this.mainWindow.focus()
+    // 使用 setTimeout 确保 Windows 系统有时间处理窗口状态变化
+    setTimeout(() => {
+      if (!this.mainWindow || this.mainWindow.isDestroyed()) return
+
+      // 重新设置置顶
+      this.mainWindow.setAlwaysOnTop(true)
+
+      // 将窗口移到最顶层（Windows 特有方法，比 focus 更强力）
+      this.mainWindow.moveTop()
+
+      // 聚焦窗口
+      this.mainWindow.focus()
+
+      // 使用原生模块强制激活窗口（通过进程 ID）
+      try {
+        const pid = process.pid
+        NativeWindowManager.activateWindow(pid)
+      } catch (e) {
+        console.error('[Window] 原生激活窗口失败:', e)
+      }
+
+      // 额外确保 webContents 获得焦点
+      this.mainWindow.webContents.focus()
+    }, 10)
   }
 
   /**

@@ -536,14 +536,15 @@ onMounted(async () => {
     // 重置所有列表的折叠状态
     searchResultsRef.value?.resetCollapseState()
 
-    // 聚焦输入框
-    nextTick(() => {
+    // 聚焦输入框 - 使用 setTimeout 确保窗口完全准备好后再聚焦
+    // 在 Windows 上，nextTick 可能不足以等待窗口完全激活
+    setTimeout(() => {
       searchBoxRef.value?.focus()
       // 如果没有清空搜索框，选中所有文本，方便用户直接输入覆盖
       if (!shouldClear && searchQuery.value) {
         searchBoxRef.value?.selectAll()
       }
-    })
+    }, 50)
 
     // 检查是否需要自动粘贴
     const timeLimit = windowStore.getAutoPasteTimeLimit()
